@@ -1,68 +1,58 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useMemo, useCallback } from 'react';
+import { useSettings } from './SettingsContext';
 import API from '../utils/api';
 
 const AnimationContext = createContext({});
 
 export const ANIMATION_DEFAULTS = {
-  // Hero
-  heroStyle:           'cinematic',   // cinematic | minimal | bold | glass
+  heroStyle:           'cinematic',
   heroParallax:        true,
   heroOrbs:            true,
   heroOrbCount:        4,
   heroDotGrid:         true,
   heroScanlines:       false,
   heroWave:            true,
-  heroTextStyle:       '3d',          // 3d | slide | fade | typewriter
+  heroTextStyle:       '3d',
   heroAutoplay:        true,
   heroInterval:        6000,
-  // Cards
   cardTilt:            true,
   cardTiltMax:         16,
   cardShine:           true,
   cardImageParallax:   true,
   cardHoverGlow:       true,
-  cardRevealStyle:     '3d',          // 3d | fade | slide | flip
-  // Page
+  cardRevealStyle:     '3d',
   pageParticles:       false,
   pageFloatingShapes:  true,
   cursorTrail:         false,
-  sectionReveal:       '3d',          // 3d | slide | fade
+  sectionReveal:       '3d',
   staggerDelay:        0.09,
-  // Toast
-  cartToastStyle:      'cinematic',   // cinematic | minimal | pill
+  cartToastStyle:      'cinematic',
   cartToastPos:        'bottom-right',
   cartToastDuration:   3000,
-  // Scroll
   scrollProgress:      true,
-  parallaxIntensity:   1.0,           // 0 = off, 1 = normal, 2 = strong
-  // Banner
+  parallaxIntensity:   1.0,
   bannerParallax:      true,
   bannerShine:         true,
   bannerScale:         true,
-  // Performance
   reducedMotion:       false,
   gpuAccelerate:       true,
 };
 
 export const AnimationProvider = ({ children }) => {
-  const [config, setConfig] = useState(ANIMATION_DEFAULTS);
-  const [loaded, setLoaded] = useState(false);
+  const { settings, loaded } = useSettings();
 
-  const load = useCallback(async () => {
+  // Derive animation config directly from shared settings — no separate fetch
+  const config = useMemo(() => {
+    if (!settings?.animationConfig) return ANIMATION_DEFAULTS;
     try {
-      const { data } = await API.get('/settings');
-      if (data?.animationConfig) {
-        setConfig({ ...ANIMATION_DEFAULTS, ...JSON.parse(data.animationConfig) });
-      }
-    } catch {}
-    setLoaded(true);
-  }, []);
-
-  useEffect(() => { load(); }, [load]);
+      return { ...ANIMATION_DEFAULTS, ...JSON.parse(settings.animationConfig) };
+    } catch {
+      return ANIMATION_DEFAULTS;
+    }
+  }, [settings?.animationConfig]);
 
   const save = useCallback(async (updates) => {
     const next = { ...config, ...updates };
-    setConfig(next);
     try { await API.put('/settings', { animationConfig: JSON.stringify(next) }); } catch {}
   }, [config]);
 

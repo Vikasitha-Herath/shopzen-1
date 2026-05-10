@@ -641,7 +641,7 @@ const NewsletterSection = ({ settings }) => {
 
 /* ── HOME ─────────────────────────────────────────────────────────────── */
 export default function Home() {
-  const { settings: themeSettings } = useTheme();
+  const { settings }  = useTheme();   // From shared SettingsContext — already loaded
   const { campaign }  = useSeasonal();
   const { config }    = useAnimation();
   const [featured,    setFeatured]    = useState([]);
@@ -651,16 +651,21 @@ export default function Home() {
   const [heroBanners, setHeroBanners] = useState([]);
   const [promoBanners,setPromoBanners]= useState([]);
   const [loading,     setLoading]     = useState(true);
-  const [sectionOrder, setSectionOrder] = useState(null);
-  // pageSettings: authoritative settings for this page, merged from theme cache + API
-  const [pageSettings, setPageSettings] = useState(() => {
+  const [sectionOrder, setSectionOrder] = useState(() => {
+    // Pre-load section order from cached settings to avoid layout shift
     try {
-      const cached = localStorage.getItem('shopzen_settings_cache');
-      return cached ? JSON.parse(cached) : null;
-    } catch { return null; }
+      const raw = localStorage.getItem('shopzen_settings_v1');
+      if (raw) {
+        const cached = JSON.parse(raw);
+        const layout = cached?.homepage_layout;
+        if (Array.isArray(layout)) return [...layout].sort((a,b)=>a.order-b.order);
+      }
+    } catch {}
+    return null;
   });
 
   useEffect(() => {
+    // Fetch page data — but NOT /settings (already handled by SettingsContext)
     Promise.all([
       API.get('/products?featured=true&limit=8'),
       API.get('/products?limit=8'),
@@ -668,38 +673,36 @@ export default function Home() {
       API.get('/categories?limit=12'),
       API.get('/banners?position=hero'),
       API.get('/banners?position=promo'),
-      API.get('/settings'),
-    ]).then(([feat,newest,sale,cats,hero,promo,settingsRes]) => {
+    ]).then(([feat,newest,sale,cats,hero,promo]) => {
       setFeatured(feat.data.products||[]);
       setNewArrivals(newest.data.products||[]);
       setOnSale(sale.data.products||[]);
       setCategories(cats.data||[]);
       setHeroBanners(hero.data||[]);
       setPromoBanners(promo.data||[]);
-      // Use fresh settings from API — this is the authoritative source for home customizations
-      const freshSettings = settingsRes.data || {};
-      setPageSettings(freshSettings);
-      // Save to cache so ThemeContext also picks it up
-      try { localStorage.setItem('shopzen_settings_cache', JSON.stringify(freshSettings)); } catch {}
-      const layout = freshSettings?.homepage_layout;
-      if (Array.isArray(layout)) {
-        setSectionOrder([...layout].sort((a,b)=>a.order-b.order));
-      }
     }).catch(()=>{}).finally(()=>setLoading(false));
     return () => ScrollTrigger.getAll().forEach(t=>t.kill());
   },[]);
 
-  // Use pageSettings (from API) when available, fall back to themeSettings (from context cache)
-  const settings = pageSettings || themeSettings;
+  // Keep sectionOrder in sync when settings update (via polling)
+  useEffect(() => {
+    const layout = settings?.homepage_layout;
+    if (Array.isArray(layout)) {
+      setSectionOrder([...layout].sort((a,b)=>a.order-b.order));
+    }
+  }, [settings?.homepage_layout]);
 
-  const S = (key, fallback) => settings?.[key] || fallback;
+  const S = (key, fallback) => settings?.[key] ?? fallback;
 
-  // Build ordered section list — only after settings loaded to avoid premature rendering
+  // Build ordered section list
   const DEFAULT_ORDER = ['hero','categories','featured','promo','bestsellers','seasonal','new_arrivals','newsletter','recently'];
   const orderedIds = sectionOrder ? sectionOrder.filter(s=>s.enabled).map(s=>s.id) : DEFAULT_ORDER;
 
-  // Only render newsletter after settings are confirmed loaded (prevents flash)
-  const newsletterEnabled = !loading && settings !== null && settings?.enableNewsletter !== false;
+  // Hero enabled check
+  const heroEnabled = !sectionOrder || sectionOrder.find(s=>s.id==='hero')?.enabled !== false;
+
+  // Newsletter: only render after page data loaded AND settings confirm it's on
+  const newsletterEnabled = !loading && settings?.enableNewsletter !== false;
 
   const SECTIONS = {
     hero: !loading && heroBanners.length>0 && (
@@ -760,7 +763,6 @@ export default function Home() {
         </div>
       </section>
     ),
-    // Newsletter: only render after data loaded to prevent flash before hero
     newsletter: newsletterEnabled && <NewsletterSection key="newsletter" settings={settings}/>,
     new_arrivals: !loading && newArrivals.length>0 && (
       <section key="new_arrivals" className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
@@ -768,25 +770,17 @@ export default function Home() {
         <AnimatedGrid products={newArrivals} settings={settings}/>
       </section>
     ),
-    recently: null, // placeholder — reserved for future recently-viewed component
+    recently: null,
     gift_cards: null,
     testimonials: null,
     brands: null,
   };
 
-  // Hero is always first (if enabled in layout), followed by TrustBar, then remaining sections in order
-  const heroEnabled = !sectionOrder || sectionOrder.find(s=>s.id==='hero')?.enabled !== false;
-
   return (
     <div className="mesh-bg" style={{ background:'var(--body-bg)' }}>
-      {/* Hero always first when enabled */}
       {heroEnabled && SECTIONS.hero}
       <TrustBar settings={settings}/>
-
-      {/* Render sections in admin-defined order, skip hero (already rendered above) */}
       {orderedIds.filter(id=>id!=='hero').map(id => SECTIONS[id] || null)}
-
-      {/* Payment badges always at bottom */}
       {!loading && (settings?.bankTransferEnabled!==false||settings?.codEnabled!==false) && (
         <section className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
           <div className="flex flex-wrap gap-3 items-center">

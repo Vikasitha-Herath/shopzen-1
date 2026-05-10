@@ -4,6 +4,7 @@ import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
 import { SeasonalProvider } from './context/SeasonalContext';
+import { SettingsProvider } from './context/SettingsContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { AnimationProvider } from './context/AnimationContext';
 import { ScrollProgressBar, FloatingShapes } from './components/Cinematic';
@@ -62,9 +63,10 @@ export default function App() {
   return (
     <AuthProvider>
       <CartProvider>
-        <ThemeProvider>
-          <SeasonalProvider>
-            <AnimationProvider>
+        <SettingsProvider>
+          <ThemeProvider>
+            <SeasonalProvider>
+              <AnimationProvider>
               <BrowserRouter>
                 <Toaster position="bottom-right" toastOptions={{ duration: 3000, style: toastStyle, success: { iconTheme: { primary: 'var(--color-primary)', secondary: '#fff' } } }}/>
                 <ScrollProgressBar/>
@@ -112,6 +114,7 @@ export default function App() {
             </AnimationProvider>
           </SeasonalProvider>
         </ThemeProvider>
+        </SettingsProvider>
       </CartProvider>
     </AuthProvider>
   );

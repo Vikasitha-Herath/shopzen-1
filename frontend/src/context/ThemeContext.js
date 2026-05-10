@@ -1,9 +1,7 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import API from '../utils/api';
+import React, { createContext, useContext, useEffect } from 'react';
+import { useSettings } from './SettingsContext';
 
 const ThemeContext = createContext();
-
-const CACHE_KEY = 'shopzen_settings_cache';
 
 const THEMES = {
   default: {
@@ -13,7 +11,6 @@ const THEMES = {
     gradient: 'linear-gradient(135deg, #b5451b 0%, #e8643c 50%, #f0a500 100%)',
     heroGradient: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #b5451b 100%)',
     cardBg: '#ffffff', bodyBg: '#fafaf8',
-    font: 'Playfair Display', bodyFont: 'DM Sans',
   },
   ocean: {
     name: 'Ocean Depths',
@@ -22,7 +19,6 @@ const THEMES = {
     gradient: 'linear-gradient(135deg, #0369a1 0%, #0ea5e9 50%, #06b6d4 100%)',
     heroGradient: 'linear-gradient(135deg, #0c1a2e 0%, #0f2744 50%, #0369a1 100%)',
     cardBg: '#ffffff', bodyBg: '#f0f9ff',
-    font: 'Playfair Display', bodyFont: 'DM Sans',
   },
   forest: {
     name: 'Deep Forest',
@@ -31,7 +27,6 @@ const THEMES = {
     gradient: 'linear-gradient(135deg, #15803d 0%, #22c55e 50%, #84cc16 100%)',
     heroGradient: 'linear-gradient(135deg, #052e16 0%, #0a3d20 50%, #15803d 100%)',
     cardBg: '#ffffff', bodyBg: '#f0fdf4',
-    font: 'Cormorant Garamond', bodyFont: 'Raleway',
   },
   royal: {
     name: 'Royal Purple',
@@ -40,7 +35,6 @@ const THEMES = {
     gradient: 'linear-gradient(135deg, #7c3aed 0%, #a78bfa 50%, #f59e0b 100%)',
     heroGradient: 'linear-gradient(135deg, #1e1b4b 0%, #2e1065 50%, #7c3aed 100%)',
     cardBg: '#ffffff', bodyBg: '#faf5ff',
-    font: 'Syne', bodyFont: 'Work Sans',
   },
   rose: {
     name: 'Rose Gold',
@@ -49,7 +43,6 @@ const THEMES = {
     gradient: 'linear-gradient(135deg, #be185d 0%, #f43f5e 50%, #fb7185 100%)',
     heroGradient: 'linear-gradient(135deg, #1f0a14 0%, #3b0a20 50%, #be185d 100%)',
     cardBg: '#ffffff', bodyBg: '#fff1f2',
-    font: 'Cormorant Garamond', bodyFont: 'Raleway',
   },
   amber: {
     name: 'Golden Amber',
@@ -58,7 +51,6 @@ const THEMES = {
     gradient: 'linear-gradient(135deg, #b45309 0%, #f59e0b 50%, #fbbf24 100%)',
     heroGradient: 'linear-gradient(135deg, #1c0a00 0%, #451a03 50%, #b45309 100%)',
     cardBg: '#ffffff', bodyBg: '#fffbeb',
-    font: 'Playfair Display', bodyFont: 'DM Sans',
   },
   midnight: {
     name: 'Midnight Dark',
@@ -67,7 +59,6 @@ const THEMES = {
     gradient: 'linear-gradient(135deg, #4338ca 0%, #6366f1 50%, #38bdf8 100%)',
     heroGradient: 'linear-gradient(135deg, #0a0a0f 0%, #111120 50%, #4338ca 100%)',
     cardBg: '#1a1a2e', bodyBg: '#0d0d1a',
-    font: 'Syne', bodyFont: 'Work Sans',
   },
   coral: {
     name: 'Coral Sunset',
@@ -76,7 +67,6 @@ const THEMES = {
     gradient: 'linear-gradient(135deg, #ea580c 0%, #f97316 50%, #fcd34d 100%)',
     heroGradient: 'linear-gradient(135deg, #1c0a00 0%, #431407 50%, #ea580c 100%)',
     cardBg: '#ffffff', bodyBg: '#fff7ed',
-    font: 'Playfair Display', bodyFont: 'DM Sans',
   },
   slate: {
     name: 'Slate Pro',
@@ -85,7 +75,6 @@ const THEMES = {
     gradient: 'linear-gradient(135deg, #1e293b 0%, #334155 50%, #38bdf8 100%)',
     heroGradient: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%)',
     cardBg: '#ffffff', bodyBg: '#f8fafc',
-    font: 'Syne', bodyFont: 'Inter',
   },
   sakura: {
     name: 'Cherry Blossom',
@@ -94,7 +83,6 @@ const THEMES = {
     gradient: 'linear-gradient(135deg, #be185d 0%, #db2777 50%, #a78bfa 100%)',
     heroGradient: 'linear-gradient(135deg, #1a0a14 0%, #2d1020 50%, #db2777 100%)',
     cardBg: '#ffffff', bodyBg: '#fdf2f8',
-    font: 'Cormorant Garamond', bodyFont: 'Raleway',
   },
   emerald: {
     name: 'Emerald City',
@@ -103,7 +91,6 @@ const THEMES = {
     gradient: 'linear-gradient(135deg, #047857 0%, #059669 50%, #34d399 100%)',
     heroGradient: 'linear-gradient(135deg, #022c22 0%, #064e3b 50%, #047857 100%)',
     cardBg: '#ffffff', bodyBg: '#ecfdf5',
-    font: 'Playfair Display', bodyFont: 'DM Sans',
   },
   neon: {
     name: 'Neon Cyber',
@@ -112,18 +99,17 @@ const THEMES = {
     gradient: 'linear-gradient(135deg, #7c3aed 0%, #a855f7 50%, #22d3ee 100%)',
     heroGradient: 'linear-gradient(135deg, #050010 0%, #0d001a 50%, #7c3aed 100%)',
     cardBg: '#0d001a', bodyBg: '#080010',
-    font: 'Syne', bodyFont: 'Work Sans',
   },
 };
 
 const FONTS = {
   default: { name:'Playfair Display + DM Sans', display: "'Playfair Display', serif", body: "'DM Sans', sans-serif", url: 'https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700;900&family=DM+Sans:wght@300;400;500;600;700&display=swap' },
-  modern:  { name:'Poppins + Inter',            display: "'Poppins', sans-serif",           body: "'Inter', sans-serif",           url: 'https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&family=Inter:wght@300;400;500;600&display=swap' },
-  elegant: { name:'Cormorant Garamond + Raleway',display: "'Cormorant Garamond', serif",    body: "'Raleway', sans-serif",         url: 'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=Raleway:wght@300;400;500;600;700&display=swap' },
-  bold:    { name:'Syne + Work Sans',           display: "'Syne', sans-serif",              body: "'Work Sans', sans-serif",       url: 'https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Work+Sans:wght@300;400;500;600&display=swap' },
-  luxury:  { name:'Bodoni Moda + Jost',         display: "'Bodoni Moda', serif",            body: "'Jost', sans-serif",           url: 'https://fonts.googleapis.com/css2?family=Bodoni+Moda:wght@400;600;700&family=Jost:wght@300;400;500;600&display=swap' },
-  tech:    { name:'Space Grotesk + IBM Plex Sans',display:"'Space Grotesk', sans-serif",   body: "'IBM Plex Sans', sans-serif",   url: 'https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap' },
-  minimal: { name:'Outfit + Nunito',            display: "'Outfit', sans-serif",            body: "'Nunito', sans-serif",         url: 'https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Nunito:wght@300;400;500;600&display=swap' },
+  modern:  { name:'Poppins + Inter',            display: "'Poppins', sans-serif",         body: "'Inter', sans-serif",           url: 'https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&family=Inter:wght@300;400;500;600&display=swap' },
+  elegant: { name:'Cormorant Garamond + Raleway',display: "'Cormorant Garamond', serif",  body: "'Raleway', sans-serif",         url: 'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=Raleway:wght@300;400;500;600;700&display=swap' },
+  bold:    { name:'Syne + Work Sans',           display: "'Syne', sans-serif",            body: "'Work Sans', sans-serif",       url: 'https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Work+Sans:wght@300;400;500;600&display=swap' },
+  luxury:  { name:'Bodoni Moda + Jost',         display: "'Bodoni Moda', serif",          body: "'Jost', sans-serif",            url: 'https://fonts.googleapis.com/css2?family=Bodoni+Moda:wght@400;600;700&family=Jost:wght@300;400;500;600&display=swap' },
+  tech:    { name:'Space Grotesk + IBM Plex Sans',display:"'Space Grotesk', sans-serif",  body: "'IBM Plex Sans', sans-serif",   url: 'https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap' },
+  minimal: { name:'Outfit + Nunito',            display: "'Outfit', sans-serif",          body: "'Nunito', sans-serif",          url: 'https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Nunito:wght@300;400;500;600&display=swap' },
   classic: { name:'Libre Baskerville + Source Sans 3', display:"'Libre Baskerville', serif", body: "'Source Sans 3', sans-serif", url: 'https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@400;700&family=Source+Sans+3:wght@300;400;500;600&display=swap' },
 };
 
@@ -132,30 +118,25 @@ export const applyTheme = (settings) => {
   const themeKey = settings?.theme || 'default';
   const themeData = THEMES[themeKey] || THEMES.default;
 
-  const primary = settings?.primaryColor || themeData.primary;
+  const primary     = settings?.primaryColor     || themeData.primary;
   const primaryDark = settings?.primaryDarkColor || themeData.primaryDark;
-  const primaryLight = settings?.primaryLightColor || themeData.primaryLight;
-  const accent = settings?.secondaryColor || themeData.accent;
-  const dark = settings?.darkBgColor || themeData.dark;
-  const bodyBg = themeData.bodyBg;
-  const cardBg = themeData.cardBg;
+  const primaryLight= settings?.primaryLightColor|| themeData.primaryLight;
+  const accent      = settings?.secondaryColor   || themeData.accent;
+  const dark        = settings?.darkBgColor      || themeData.dark;
 
-  root.style.setProperty('--color-primary', primary);
-  root.style.setProperty('--color-primary-dark', primaryDark);
+  root.style.setProperty('--color-primary',       primary);
+  root.style.setProperty('--color-primary-dark',  primaryDark);
   root.style.setProperty('--color-primary-light', primaryLight);
-  root.style.setProperty('--color-accent', accent);
-  root.style.setProperty('--color-dark', dark);
-  root.style.setProperty('--color-surface', themeData.surface);
-  root.style.setProperty('--theme-gradient', themeData.gradient);
-  root.style.setProperty('--hero-gradient', themeData.heroGradient);
-  root.style.setProperty('--card-bg', cardBg);
-  root.style.setProperty('--body-bg', bodyBg);
+  root.style.setProperty('--color-accent',        accent);
+  root.style.setProperty('--color-dark',          dark);
+  root.style.setProperty('--color-surface',       themeData.surface);
+  root.style.setProperty('--theme-gradient',      themeData.gradient);
+  root.style.setProperty('--hero-gradient',       themeData.heroGradient);
+  root.style.setProperty('--card-bg',             themeData.cardBg);
+  root.style.setProperty('--body-bg',             themeData.bodyBg);
+  document.body.style.background = themeData.bodyBg;
 
-  // Apply body background
-  document.body.style.background = bodyBg;
-
-  // Apply font
-  const fontKey = settings?.fontStyle || 'default';
+  const fontKey  = settings?.fontStyle || 'default';
   const fontData = FONTS[fontKey] || FONTS.default;
 
   let fontLink = document.getElementById('theme-font');
@@ -165,12 +146,11 @@ export const applyTheme = (settings) => {
     fontLink.rel = 'stylesheet';
     document.head.appendChild(fontLink);
   }
-  fontLink.href = fontData.url;
+  if (fontLink.href !== fontData.url) fontLink.href = fontData.url;
 
   root.style.setProperty('--font-display', fontData.display);
-  root.style.setProperty('--font-body', fontData.body);
+  root.style.setProperty('--font-body',    fontData.body);
 
-  // Apply custom CSS
   let customStyle = document.getElementById('custom-theme-css');
   if (!customStyle) {
     customStyle = document.createElement('style');
@@ -180,61 +160,22 @@ export const applyTheme = (settings) => {
   customStyle.textContent = settings?.customCSS || '';
 };
 
-// Load cached settings from localStorage and apply immediately (prevents flash)
-const loadCachedSettings = () => {
-  try {
-    const cached = localStorage.getItem(CACHE_KEY);
-    if (cached) {
-      const parsed = JSON.parse(cached);
-      applyTheme(parsed);
-      return parsed;
-    }
-  } catch {}
-  return null;
-};
-
-// Save settings to localStorage cache
-const saveSettingsCache = (settings) => {
-  try {
-    localStorage.setItem(CACHE_KEY, JSON.stringify(settings));
-  } catch {}
-};
-
 export { THEMES, FONTS };
 
 export const ThemeProvider = ({ children }) => {
-  // Initialize with cached settings immediately — eliminates flash on load
-  const [settings, setSettings] = useState(() => loadCachedSettings());
-  const [themeKey, setThemeKey] = useState(() => {
-    try {
-      const cached = localStorage.getItem(CACHE_KEY);
-      if (cached) return JSON.parse(cached)?.theme || 'default';
-    } catch {}
-    return 'default';
-  });
+  const { settings, refresh } = useSettings();
 
-  const loadAndApply = useCallback(async () => {
-    try {
-      const { data } = await API.get('/settings');
-      setSettings(data);
-      setThemeKey(data.theme || 'default');
-      applyTheme(data);
-      saveSettingsCache(data);
-    } catch {}
-  }, []);
-
+  // Apply theme every time settings change
   useEffect(() => {
-    loadAndApply();
-    const interval = setInterval(loadAndApply, 5000);
-    return () => clearInterval(interval);
-  }, [loadAndApply]);
+    if (settings && Object.keys(settings).length > 0) {
+      applyTheme(settings);
+    }
+  }, [settings]);
 
-  const refreshTheme = useCallback(() => {
-    loadAndApply();
-  }, [loadAndApply]);
+  const themeKey = settings?.theme || 'default';
 
   return (
-    <ThemeContext.Provider value={{ settings, themeKey, THEMES, FONTS, refreshTheme, applyTheme }}>
+    <ThemeContext.Provider value={{ settings, themeKey, THEMES, FONTS, refreshTheme: refresh, applyTheme }}>
       {children}
     </ThemeContext.Provider>
   );
