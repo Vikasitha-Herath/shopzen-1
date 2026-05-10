@@ -3,6 +3,8 @@ import API from '../utils/api';
 
 const ThemeContext = createContext();
 
+const CACHE_KEY = 'shopzen_settings_cache';
+
 const THEMES = {
   default: {
     name: 'Ember Classic',
@@ -178,11 +180,38 @@ export const applyTheme = (settings) => {
   customStyle.textContent = settings?.customCSS || '';
 };
 
+// Load cached settings from localStorage and apply immediately (prevents flash)
+const loadCachedSettings = () => {
+  try {
+    const cached = localStorage.getItem(CACHE_KEY);
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      applyTheme(parsed);
+      return parsed;
+    }
+  } catch {}
+  return null;
+};
+
+// Save settings to localStorage cache
+const saveSettingsCache = (settings) => {
+  try {
+    localStorage.setItem(CACHE_KEY, JSON.stringify(settings));
+  } catch {}
+};
+
 export { THEMES, FONTS };
 
 export const ThemeProvider = ({ children }) => {
-  const [settings, setSettings] = useState(null);
-  const [themeKey, setThemeKey] = useState('default');
+  // Initialize with cached settings immediately — eliminates flash on load
+  const [settings, setSettings] = useState(() => loadCachedSettings());
+  const [themeKey, setThemeKey] = useState(() => {
+    try {
+      const cached = localStorage.getItem(CACHE_KEY);
+      if (cached) return JSON.parse(cached)?.theme || 'default';
+    } catch {}
+    return 'default';
+  });
 
   const loadAndApply = useCallback(async () => {
     try {
@@ -190,13 +219,13 @@ export const ThemeProvider = ({ children }) => {
       setSettings(data);
       setThemeKey(data.theme || 'default');
       applyTheme(data);
+      saveSettingsCache(data);
     } catch {}
   }, []);
 
   useEffect(() => {
     loadAndApply();
-    // Poll every 10 seconds to pick up admin changes
-    const interval = setInterval(loadAndApply, 5000); // Poll every 5s for real-time sync
+    const interval = setInterval(loadAndApply, 5000);
     return () => clearInterval(interval);
   }, [loadAndApply]);
 

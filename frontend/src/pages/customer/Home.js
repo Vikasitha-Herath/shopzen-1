@@ -641,7 +641,7 @@ const NewsletterSection = ({ settings }) => {
 
 /* ── HOME ─────────────────────────────────────────────────────────────── */
 export default function Home() {
-  const { settings }  = useTheme();
+  const { settings: themeSettings } = useTheme();
   const { campaign }  = useSeasonal();
   const { config }    = useAnimation();
   const [featured,    setFeatured]    = useState([]);
@@ -652,6 +652,13 @@ export default function Home() {
   const [promoBanners,setPromoBanners]= useState([]);
   const [loading,     setLoading]     = useState(true);
   const [sectionOrder, setSectionOrder] = useState(null);
+  // pageSettings: authoritative settings for this page, merged from theme cache + API
+  const [pageSettings, setPageSettings] = useState(() => {
+    try {
+      const cached = localStorage.getItem('shopzen_settings_cache');
+      return cached ? JSON.parse(cached) : null;
+    } catch { return null; }
+  });
 
   useEffect(() => {
     Promise.all([
@@ -669,7 +676,12 @@ export default function Home() {
       setCategories(cats.data||[]);
       setHeroBanners(hero.data||[]);
       setPromoBanners(promo.data||[]);
-      const layout = settingsRes.data?.homepage_layout;
+      // Use fresh settings from API — this is the authoritative source for home customizations
+      const freshSettings = settingsRes.data || {};
+      setPageSettings(freshSettings);
+      // Save to cache so ThemeContext also picks it up
+      try { localStorage.setItem('shopzen_settings_cache', JSON.stringify(freshSettings)); } catch {}
+      const layout = freshSettings?.homepage_layout;
       if (Array.isArray(layout)) {
         setSectionOrder([...layout].sort((a,b)=>a.order-b.order));
       }
@@ -677,24 +689,23 @@ export default function Home() {
     return () => ScrollTrigger.getAll().forEach(t=>t.kill());
   },[]);
 
+  // Use pageSettings (from API) when available, fall back to themeSettings (from context cache)
+  const settings = pageSettings || themeSettings;
+
   const S = (key, fallback) => settings?.[key] || fallback;
 
-  // Check if a section is enabled in admin layout (defaults to true if no layout saved)
-  const isOn = (id) => {
-    if (!sectionOrder) return true;
-    const s = sectionOrder.find(x=>x.id===id);
-    return s ? s.enabled : true;
-  };
-
-  // Build ordered section list
+  // Build ordered section list — only after settings loaded to avoid premature rendering
   const DEFAULT_ORDER = ['hero','categories','featured','promo','bestsellers','seasonal','new_arrivals','newsletter','recently'];
   const orderedIds = sectionOrder ? sectionOrder.filter(s=>s.enabled).map(s=>s.id) : DEFAULT_ORDER;
 
+  // Only render newsletter after settings are confirmed loaded (prevents flash)
+  const newsletterEnabled = !loading && settings !== null && settings?.enableNewsletter !== false;
+
   const SECTIONS = {
-    hero: heroBanners.length>0 && (
+    hero: !loading && heroBanners.length>0 && (
       <HeroSlider key="hero" banners={heroBanners} settings={settings} campaign={campaign} anim={config}/>
     ),
-    categories: categories.length>0 && (
+    categories: !loading && categories.length>0 && (
       <section key="categories" className="max-w-7xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
         <SectionHeading title={S('sectionCatTitle','Browse Categories')} subtitle={S('sectionCatSubtitle','Find exactly what you need')}/>
         <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-2.5 sm:gap-4">
@@ -702,7 +713,7 @@ export default function Home() {
         </div>
       </section>
     ),
-    featured: featured.length>0 && (
+    featured: (loading || featured.length>0) && (
       <section key="featured" className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         <SectionHeading title={S('sectionFeaturedTitle','Featured Products')} subtitle={S('sectionFeaturedSubtitle','Hand-picked by our team')} link="/shop?featured=true"/>
         {loading ? (
@@ -712,20 +723,20 @@ export default function Home() {
         ) : <AnimatedGrid products={featured} settings={settings}/>}
       </section>
     ),
-    promo: promoBanners.length>0 && (
+    promo: !loading && promoBanners.length>0 && (
       <section key="promo" className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
         {promoBanners.length===1 && <PromoBanner banner={promoBanners[0]} tall/>}
         {promoBanners.length===2 && <div className="grid sm:grid-cols-2 gap-4">{promoBanners.map(b=><PromoBanner key={b._id} banner={b}/>)}</div>}
         {promoBanners.length>=3 && <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">{promoBanners.slice(0,3).map(b=><PromoBanner key={b._id} banner={b}/>)}</div>}
       </section>
     ),
-    bestsellers: onSale.length>0 && (
+    bestsellers: !loading && onSale.length>0 && (
       <section key="bestsellers" className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         <SectionHeading title={S('sectionSaleTitle','🔥 Flash Deals')} subtitle={S('sectionSaleSubtitle','Limited time discounts')} link="/shop?onSale=true" linkLabel="All Deals →"/>
         <AnimatedGrid products={onSale} settings={settings}/>
       </section>
     ),
-    seasonal: campaign?.couponCode && (
+    seasonal: !loading && campaign?.couponCode && (
       <section key="seasonal" className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
         <div className="relative rounded-3xl overflow-hidden" style={{ background:'var(--theme-gradient)' }}>
           <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -749,8 +760,9 @@ export default function Home() {
         </div>
       </section>
     ),
-    newsletter: settings?.enableNewsletter!==false && <NewsletterSection key="newsletter" settings={settings}/>,
-    new_arrivals: newArrivals.length>0 && (
+    // Newsletter: only render after data loaded to prevent flash before hero
+    newsletter: newsletterEnabled && <NewsletterSection key="newsletter" settings={settings}/>,
+    new_arrivals: !loading && newArrivals.length>0 && (
       <section key="new_arrivals" className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         <SectionHeading title={S('sectionNewTitle','✨ New Arrivals')} subtitle={S('sectionNewSubtitle','Just landed in our store')} link="/shop" linkLabel="View All →"/>
         <AnimatedGrid products={newArrivals} settings={settings}/>
@@ -762,17 +774,20 @@ export default function Home() {
     brands: null,
   };
 
+  // Hero is always first (if enabled in layout), followed by TrustBar, then remaining sections in order
+  const heroEnabled = !sectionOrder || sectionOrder.find(s=>s.id==='hero')?.enabled !== false;
+
   return (
     <div className="mesh-bg" style={{ background:'var(--body-bg)' }}>
-      {/* Always show trust bar after hero */}
-      {isOn('hero') && SECTIONS.hero}
+      {/* Hero always first when enabled */}
+      {heroEnabled && SECTIONS.hero}
       <TrustBar settings={settings}/>
 
-      {/* Render sections in admin-defined order */}
+      {/* Render sections in admin-defined order, skip hero (already rendered above) */}
       {orderedIds.filter(id=>id!=='hero').map(id => SECTIONS[id] || null)}
 
       {/* Payment badges always at bottom */}
-      {(settings?.bankTransferEnabled!==false||settings?.codEnabled!==false) && (
+      {!loading && (settings?.bankTransferEnabled!==false||settings?.codEnabled!==false) && (
         <section className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
           <div className="flex flex-wrap gap-3 items-center">
             {settings?.bankTransferEnabled!==false && (
