@@ -166,6 +166,9 @@ export const applyTheme = (settings) => {
   root.style.setProperty('--hero-gradient', themeData.heroGradient);
   root.style.setProperty('--card-bg', cardBg);
   root.style.setProperty('--body-bg', bodyBg);
+  // Glow variables derived from primary color
+  root.style.setProperty('--glow-primary', primary + '66');
+  root.style.setProperty('--glow-accent', accent + '4d');
 
   // Apply body background immediately
   document.body.style.background = bodyBg;

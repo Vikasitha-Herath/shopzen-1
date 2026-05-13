@@ -66,6 +66,10 @@
           root.style.setProperty('--hero-gradient',       t.heroGradient);
           root.style.setProperty('--card-bg',             t.cardBg);
           root.style.setProperty('--body-bg',             t.bodyBg);
+          var p = s.primaryColor || t.primary;
+          var a = s.secondaryColor || t.accent;
+          root.style.setProperty('--glow-primary', p + '66');
+          root.style.setProperty('--glow-accent',  a + '4d');
           document.body.style.background = t.bodyBg;
           var fontKey = s.fontStyle || 'default';
           var f = FONTS[fontKey] || FONTS['default'];
