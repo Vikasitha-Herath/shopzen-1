@@ -217,10 +217,13 @@ export const ThemeProvider = ({ children }) => {
   const loadAndApply = useCallback(async () => {
     try {
       const { data } = await API.get('/settings');
+      // Guard: ensure we got a real settings object, not an HTML error page
+      // (can happen in production if REACT_APP_API_URL env var is not set)
+      if (!data || typeof data !== 'object' || Array.isArray(data)) return;
       setSettings(data);
       setThemeKey(data.theme || 'default');
       applyTheme(data);
-      setCachedSettings(data); // update cache with fresh data
+      setCachedSettings(data); // update localStorage cache with fresh data
     } catch {}
   }, []);
 

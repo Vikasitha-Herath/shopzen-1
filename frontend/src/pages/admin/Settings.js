@@ -211,6 +211,9 @@ export default function AdminSettings() {
     try {
       await API.put('/settings', settings);
       applyTheme(settings);
+      // Write to localStorage cache so the theme bootstrap script uses the
+      // correct theme on next page load (critical for production / Vercel)
+      try { localStorage.setItem('shopzen_theme_settings', JSON.stringify(settings)); } catch {}
       toast.success('✅ Settings saved & applied!');
     } catch { toast.error('Failed to save'); }
     finally { setSaving(false); }
