@@ -641,7 +641,7 @@ const NewsletterSection = ({ settings }) => {
 
 /* ── HOME ─────────────────────────────────────────────────────────────── */
 export default function Home() {
-  const { settings }  = useTheme();   // From shared SettingsContext — already loaded
+  const { settings }  = useTheme();
   const { campaign }  = useSeasonal();
   const { config }    = useAnimation();
   const [featured,    setFeatured]    = useState([]);
@@ -651,21 +651,24 @@ export default function Home() {
   const [heroBanners, setHeroBanners] = useState([]);
   const [promoBanners,setPromoBanners]= useState([]);
   const [loading,     setLoading]     = useState(true);
-  const [sectionOrder, setSectionOrder] = useState(() => {
-    // Pre-load section order from cached settings to avoid layout shift
-    try {
-      const raw = localStorage.getItem('shopzen_settings_v1');
-      if (raw) {
-        const cached = JSON.parse(raw);
-        const layout = cached?.homepage_layout;
-        if (Array.isArray(layout)) return [...layout].sort((a,b)=>a.order-b.order);
-      }
-    } catch {}
-    return null;
+  const [sectionOrder, setSectionOrder] = useState(null);
+  // settingsReady prevents rendering newsletter/payment sections before settings load
+  const [settingsReady, setSettingsReady] = useState(() => {
+    try { return !!localStorage.getItem('shopzen_theme_settings'); } catch { return false; }
   });
 
+  // Sync sectionOrder from settings when they arrive (ThemeContext handles settings fetching)
   useEffect(() => {
-    // Fetch page data — but NOT /settings (already handled by SettingsContext)
+    if (settings) {
+      setSettingsReady(true);
+      const layout = settings.homepage_layout;
+      if (Array.isArray(layout)) {
+        setSectionOrder([...layout].sort((a,b)=>a.order-b.order));
+      }
+    }
+  }, [settings]);
+
+  useEffect(() => {
     Promise.all([
       API.get('/products?featured=true&limit=8'),
       API.get('/products?limit=8'),
@@ -684,31 +687,24 @@ export default function Home() {
     return () => ScrollTrigger.getAll().forEach(t=>t.kill());
   },[]);
 
-  // Keep sectionOrder in sync when settings update (via polling)
-  useEffect(() => {
-    const layout = settings?.homepage_layout;
-    if (Array.isArray(layout)) {
-      setSectionOrder([...layout].sort((a,b)=>a.order-b.order));
-    }
-  }, [settings?.homepage_layout]);
+  const S = (key, fallback) => settings?.[key] || fallback;
 
-  const S = (key, fallback) => settings?.[key] ?? fallback;
+  // Check if a section is enabled in admin layout (defaults to true if no layout saved)
+  const isOn = (id) => {
+    if (!sectionOrder) return true;
+    const s = sectionOrder.find(x=>x.id===id);
+    return s ? s.enabled : true;
+  };
 
   // Build ordered section list
   const DEFAULT_ORDER = ['hero','categories','featured','promo','bestsellers','seasonal','new_arrivals','newsletter','recently'];
   const orderedIds = sectionOrder ? sectionOrder.filter(s=>s.enabled).map(s=>s.id) : DEFAULT_ORDER;
 
-  // Hero enabled check
-  const heroEnabled = !sectionOrder || sectionOrder.find(s=>s.id==='hero')?.enabled !== false;
-
-  // Newsletter: only render after page data loaded AND settings confirm it's on
-  const newsletterEnabled = !loading && settings?.enableNewsletter !== false;
-
   const SECTIONS = {
-    hero: !loading && heroBanners.length>0 && (
+    hero: heroBanners.length>0 && (
       <HeroSlider key="hero" banners={heroBanners} settings={settings} campaign={campaign} anim={config}/>
     ),
-    categories: !loading && categories.length>0 && (
+    categories: categories.length>0 && (
       <section key="categories" className="max-w-7xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
         <SectionHeading title={S('sectionCatTitle','Browse Categories')} subtitle={S('sectionCatSubtitle','Find exactly what you need')}/>
         <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-2.5 sm:gap-4">
@@ -716,7 +712,7 @@ export default function Home() {
         </div>
       </section>
     ),
-    featured: (loading || featured.length>0) && (
+    featured: featured.length>0 && (
       <section key="featured" className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         <SectionHeading title={S('sectionFeaturedTitle','Featured Products')} subtitle={S('sectionFeaturedSubtitle','Hand-picked by our team')} link="/shop?featured=true"/>
         {loading ? (
@@ -726,20 +722,20 @@ export default function Home() {
         ) : <AnimatedGrid products={featured} settings={settings}/>}
       </section>
     ),
-    promo: !loading && promoBanners.length>0 && (
+    promo: promoBanners.length>0 && (
       <section key="promo" className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
         {promoBanners.length===1 && <PromoBanner banner={promoBanners[0]} tall/>}
         {promoBanners.length===2 && <div className="grid sm:grid-cols-2 gap-4">{promoBanners.map(b=><PromoBanner key={b._id} banner={b}/>)}</div>}
         {promoBanners.length>=3 && <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">{promoBanners.slice(0,3).map(b=><PromoBanner key={b._id} banner={b}/>)}</div>}
       </section>
     ),
-    bestsellers: !loading && onSale.length>0 && (
+    bestsellers: onSale.length>0 && (
       <section key="bestsellers" className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         <SectionHeading title={S('sectionSaleTitle','🔥 Flash Deals')} subtitle={S('sectionSaleSubtitle','Limited time discounts')} link="/shop?onSale=true" linkLabel="All Deals →"/>
         <AnimatedGrid products={onSale} settings={settings}/>
       </section>
     ),
-    seasonal: !loading && campaign?.couponCode && (
+    seasonal: campaign?.couponCode && (
       <section key="seasonal" className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
         <div className="relative rounded-3xl overflow-hidden" style={{ background:'var(--theme-gradient)' }}>
           <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -763,14 +759,14 @@ export default function Home() {
         </div>
       </section>
     ),
-    newsletter: newsletterEnabled && <NewsletterSection key="newsletter" settings={settings}/>,
-    new_arrivals: !loading && newArrivals.length>0 && (
+    newsletter: settingsReady && settings?.enableNewsletter!==false && <NewsletterSection key="newsletter" settings={settings}/>,
+    new_arrivals: newArrivals.length>0 && (
       <section key="new_arrivals" className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         <SectionHeading title={S('sectionNewTitle','✨ New Arrivals')} subtitle={S('sectionNewSubtitle','Just landed in our store')} link="/shop" linkLabel="View All →"/>
         <AnimatedGrid products={newArrivals} settings={settings}/>
       </section>
     ),
-    recently: null,
+    recently: null, // placeholder — reserved for future recently-viewed component
     gift_cards: null,
     testimonials: null,
     brands: null,
@@ -778,10 +774,15 @@ export default function Home() {
 
   return (
     <div className="mesh-bg" style={{ background:'var(--body-bg)' }}>
-      {heroEnabled && SECTIONS.hero}
+      {/* Always show trust bar after hero */}
+      {isOn('hero') && SECTIONS.hero}
       <TrustBar settings={settings}/>
+
+      {/* Render sections in admin-defined order */}
       {orderedIds.filter(id=>id!=='hero').map(id => SECTIONS[id] || null)}
-      {!loading && (settings?.bankTransferEnabled!==false||settings?.codEnabled!==false) && (
+
+      {/* Payment badges always at bottom */}
+      {settingsReady && (settings?.bankTransferEnabled!==false||settings?.codEnabled!==false) && (
         <section className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
           <div className="flex flex-wrap gap-3 items-center">
             {settings?.bankTransferEnabled!==false && (
